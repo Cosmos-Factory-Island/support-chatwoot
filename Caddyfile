@@ -1,0 +1,9 @@
+chatwoot.localhost {
+    tls internal
+    reverse_proxy rails:3000
+}
+
+mail.chatwoot.localhost {
+    tls internal
+    reverse_proxy mailpit:8025
+}
