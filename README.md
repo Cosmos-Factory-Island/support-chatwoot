@@ -52,9 +52,14 @@ Proyecto Coolify: Huerto.Bio
 2. Coolify → proyecto **Huerto.Bio** → **+ New Resource** → **Docker Compose**
 3. Repo: `Cosmos-Factory-Island/support-chatwoot`, rama `main`
 4. Compose file: `/docker-compose.yaml`
-5. **Dominio del servicio `rails`**: `https://chat.huerto.bio:3000`
-   - En Coolify **no hay un campo aparte de puerto**. El `:3000` va en la URL del dominio.
-   - Ese puerto es el **interno del contenedor**; Traefik/Coolify sirve la web en HTTPS (443) hacia fuera.
+5. El compose declara `SERVICE_URL_RAILS_3000`, que indica a Coolify que el
+   servicio público es `rails` en el puerto HTTP interno `3000`.
+   - No editar el valor generado `SERVICE_URL_RAILS`; Coolify lo bloquea
+     deliberadamente.
+   - Tras desplegar, asignar `chat.huerto.bio` al dominio generado para
+     `SERVICE_URL_RAILS_3000`, o usar `http://chat.huerto.bio:3000` en
+     **Domains for rails**.
+   - Traefik/Coolify termina TLS públicamente; Puma recibe HTTP plano.
    - Deja vacíos los dominios de `sidekiq` y cualquier otro servicio interno.
 6. Variables de entorno (desde `.env.example`, valores de producción)
    - `FRONTEND_URL=https://chat.huerto.bio` (sin `:3000`)

@@ -46,6 +46,11 @@ services:
   rails:
     <<: *chatwoot-app
     restart: unless-stopped
+    environment:
+      <<: *chatwoot-env
+      # Magic variable de Coolify: crea la ruta pública hacia el puerto HTTP
+      # interno de Puma. No editar SERVICE_URL_RAILS en la UI.
+      SERVICE_URL_RAILS_3000: ${SERVICE_URL_RAILS_3000:-}
     depends_on:
       postgres:
         condition: service_healthy
