@@ -41,7 +41,14 @@ fi
 echo "==> Arrancando servicios..."
 docker compose -f "$COMPOSE_FILE" up -d
 
+echo "==> Migraciones pendientes (dump local puede estar en esquema anterior)..."
+docker compose -f "$COMPOSE_FILE" exec -T rails bundle exec rails db:migrate
+
+echo "==> Reiniciando Sidekiq..."
+docker compose -f "$COMPOSE_FILE" restart sidekiq || true
+
 echo ""
 echo "Importación completada."
 echo "Comprueba https://chat.huerto.bio y el Website Token en Settings → Inboxes."
+echo "Si Sidekiq muestra errores de columnas faltantes, revisa db:migrate:status en el contenedor rails."
 echo "Usa el mismo SECRET_KEY_BASE que en local si quieres conservar sesiones cifradas."

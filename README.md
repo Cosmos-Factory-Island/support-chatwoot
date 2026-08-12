@@ -150,9 +150,36 @@ chmod +x scripts/import-production.sh
 ./scripts/import-production.sh backups/chatwoot-YYYYMMDD-HHMMSS.sql backups/storage_data-YYYYMMDD-HHMMSS.tar.gz
 ```
 
-> **No ejecutes** `db:chatwoot_prepare` en producción si importas el dump local: la BD ya viene migrada y con datos.
+> **No ejecutes** `db:chatwoot_prepare` en producción si importas el dump local: la BD ya viene con datos. **Sí debes** ejecutar `db:migrate` si la imagen de producción es más nueva que tu instalación local (ver [Migraciones tras importar dump](#4-migraciones-tras-importar-dump-local--imagen-prod)).
 
-### 4. Variables que deben coincidir
+### 4. Migraciones tras importar dump (local ≠ imagen prod)
+
+El dump local puede traer un esquema **anterior** al de la imagen desplegada en Coolify (`CHATWOOT_IMAGE_TAG`, p. ej. `v4.16.2`). Si no migras, Sidekiq fallará con errores como:
+
+- `PG::UndefinedColumn: column email_templates.inbox_id does not exist`
+- `StandardError: Channel email domain not present` (inbox Website sin canal email; ver [Emails](#emails-y-notificaciones))
+
+**Obligatorio tras importar** (o tras subir `CHATWOOT_IMAGE_TAG`):
+
+```bash
+# Desde SSH en el VPS — sustituye nombres de contenedor (ver sección Operaciones)
+docker exec -it <CONTENEDOR_RAILS> bundle exec rails db:migrate:status | tail -30
+docker exec -it <CONTENEDOR_RAILS> bundle exec rails db:migrate
+docker restart <CONTENEDOR_SIDEKIQ>
+```
+
+Verificar que la migración `AddInboxScopeToEmailTemplates` quedó en `up` y que existe `email_templates.inbox_id`:
+
+```bash
+docker exec -it <CONTENEDOR_POSTGRES> \
+  psql -U postgres -d chatwoot_production -c "\d email_templates"
+```
+
+Debe aparecer la columna `inbox_id` y los índices `index_email_templates_on_inbox_*`.
+
+> `scripts/import-production.sh` ejecuta `db:migrate` y reinicia Sidekiq automáticamente tras restaurar el dump.
+
+### 5. Variables que deben coincidir
 
 | Variable | Recomendación |
 | --- | --- |
@@ -165,6 +192,93 @@ Tras importar, revisa en Chatwoot **Settings → Account → Allowed Domains**:
 `huerto.bio`, `www.huerto.bio`, `beta.huerto.bio`, `staging.huerto.bio`, `localhost`
 
 El **Website Token** será el mismo que tenías en local si migraste la BD completa.
+
+## Operaciones en Coolify (VPS)
+
+Coolify nombra los contenedores con un sufijo único. Desde SSH en el VPS (`root@srv-edge`), **`docker compose` desde `~` no funciona** (`no configuration file provided`). Usa el **terminal del recurso support-chatwoot** en Coolify (tiene el compose en contexto) **o** `docker exec` con el nombre exacto del contenedor.
+
+### Identificar contenedores
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "rails|sidekiq|postgres|redis"
+```
+
+Ejemplo de salida:
+
+```
+rails-g14e4wip3560eolomx6i5t16-143936982889       Up (healthy)
+sidekiq-g14e4wip3560eolomx6i5t16-143937047475     Up
+postgres-g14e4wip3560eolomx6i5t16-143937102690    Up (healthy)
+```
+
+En los comandos siguientes sustituye `<CONTENEDOR_RAILS>`, `<CONTENEDOR_SIDEKIQ>` y `<CONTENEDOR_POSTGRES>` por esos nombres.
+
+> **Postgres** vive en su propio contenedor. No ejecutes `psql` dentro del contenedor `rails` (fallará con `connection to server on socket ... failed`).
+
+### Migraciones de base de datos
+
+| Situación | Comando |
+| --- | --- |
+| Instalación **nueva** (BD vacía) | `docker compose run --rm rails bundle exec rails db:chatwoot_prepare` |
+| **Importaste dump local** o subiste `CHATWOOT_IMAGE_TAG` | `docker exec -it <CONTENEDOR_RAILS> bundle exec rails db:migrate` |
+| Comprobar pendientes | `docker exec -it <CONTENEDOR_RAILS> bundle exec rails db:migrate:status \| tail -30` |
+
+Flujo recomendado tras cada actualización de imagen:
+
+```bash
+docker exec -it <CONTENEDOR_RAILS> bundle exec rails db:migrate
+docker restart <CONTENEDOR_SIDEKIQ>
+```
+
+### Sidekiq y Redis
+
+Comprobar conexión Redis desde Sidekiq:
+
+```bash
+docker exec -it <CONTENEDOR_SIDEKIQ> bundle exec rails runner "puts Sidekiq.redis { |r| r.ping }"
+# Esperado: PONG
+```
+
+Estadísticas de colas:
+
+```bash
+docker exec -it <CONTENEDOR_SIDEKIQ> bundle exec rails runner "
+  require 'sidekiq/api'
+  puts 'Enqueued: ' + Sidekiq::Stats.new.enqueued.to_s
+  puts 'Retries: ' + Sidekiq::RetrySet.new.size.to_s
+  puts 'Dead:    ' + Sidekiq::DeadSet.new.size.to_s
+"
+```
+
+Valores sanos tras migrar: `Enqueued: 0`, `Retries: 0`. Jobs en `Dead` son fallos **históricos** (p. ej. emails antes de migrar); **reiniciar Sidekiq no los borra**.
+
+Limpiar dead jobs obsoletos (solo tras corregir la causa — migraciones, SMTP, etc.):
+
+```bash
+docker exec -it <CONTENEDOR_SIDEKIQ> bundle exec rails runner "
+  require 'sidekiq/api'
+  Sidekiq::DeadSet.new.clear
+  puts 'Dead jobs cleared'
+"
+```
+
+### Emails y notificaciones
+
+| Error en Sidekiq | Causa | Acción |
+| --- | --- | --- |
+| `Channel email domain not present` | Inbox **Website** sin canal email; Chatwoot intenta enviar resumen por correo | Desactivar emails de agente en **Settings → Notifications**, o configurar SMTP + inbox Email |
+| `email_templates.inbox_id does not exist` | BD desactualizada respecto a la imagen | Ejecutar `db:migrate` (sección anterior) |
+
+Variables SMTP en Coolify (ejemplo Resend): ver `.env.example` (`SMTP_ADDRESS`, `SMTP_PASSWORD`, etc.).
+
+### Inbox web (widget Huerto.Bio)
+
+Tras migrar, revisa en el panel:
+
+1. **Settings → Inboxes → Huerto.Bio Soporte → Collaborators** — agentes humanos asignados al inbox
+2. **Auto assignment** activo en la configuración del inbox
+3. **Sin Agent Bot** conectado si no tienes webhook configurado (un bot sin URL deja el widget “pensando”)
+4. Conversaciones reabiertas tras CSAT reutilizan el mismo hilo (no crean conversación nueva)
 
 ## Seguridad
 
@@ -179,7 +293,25 @@ El **Website Token** será el mismo que tenías en local si migraste la BD compl
 
 ## Actualización de imagen
 
+En el terminal del recurso Coolify (o con `docker exec`):
+
 ```bash
-docker compose pull
+# 1. Pull de la nueva imagen (Coolify redeploy, o manualmente)
+docker compose pull   # solo si estás en el directorio del compose
 docker compose up -d
+
+# 2. Migraciones obligatorias si la etiqueta sube de versión
+docker exec -it <CONTENEDOR_RAILS> bundle exec rails db:migrate
+
+# 3. Reiniciar Sidekiq para procesar colas limpias
+docker restart <CONTENEDOR_SIDEKIQ>
+
+# 4. Verificar Sidekiq (opcional)
+docker exec -it <CONTENEDOR_SIDEKIQ> bundle exec rails runner "
+  require 'sidekiq/api'
+  puts 'Enqueued: ' + Sidekiq::Stats.new.enqueued.to_s
+  puts 'Dead:    ' + Sidekiq::DeadSet.new.size.to_s
+"
 ```
+
+Si cambias `CHATWOOT_IMAGE_TAG` en Coolify → **Environment Variables**, redeploy y repite los pasos 2–4.
