@@ -14,6 +14,8 @@ Stack Docker independiente de [Chatwoot](https://www.chatwoot.com/) para soporte
 | `docker-compose.local.yaml` | Solo desarrollo local (Caddy + Mailpit) |
 | `Caddyfile` | HTTPS local (`chatwoot.localhost`) |
 | `.env.example` | Plantilla de variables (copiar a `.env`) |
+| `scripts/export-local.ps1` | Exportar BD + storage desde local |
+| `scripts/import-production.sh` | Restaurar en Coolify/VPS |
 
 > **Coolify** despliega únicamente `docker-compose.yaml`. El overlay local no interfiere porque no usamos `docker-compose.override.yaml` (auto-cargado por Compose).
 
@@ -100,6 +102,46 @@ docker compose run --rm rails bundle exec rails db:chatwoot_prepare
 | `sidekiq` | 0.5 | 512M |
 | `postgres` | 0.5 | 1G |
 | `redis` | 0.25 | 256M |
+
+## Migrar configuración local → producción
+
+Si ya configuraste Chatwoot en local (cuenta, inbox, agentes), migra la BD **`chatwoot_production`** y el volumen de adjuntos.
+
+### 1. Exportar en tu PC (Windows)
+
+```powershell
+cd D:\Work\Proyectos\HuertoBio\tools\support-chatwoot
+.\scripts\export-local.ps1
+```
+
+Genera en `backups/`:
+- `chatwoot-YYYYMMDD-HHMMSS.sql` — dump PostgreSQL
+- `storage_data-YYYYMMDD-HHMMSS.tar.gz` — avatares/adjuntos (opcional pero recomendado)
+
+### 2. Subir al VPS
+
+Copia ambos archivos al servidor (SCP, SFTP, etc.).
+
+### 3. Importar en Coolify
+
+En el terminal del recurso **support-chatwoot** (con variables de entorno ya configuradas):
+
+```bash
+chmod +x scripts/import-production.sh
+./scripts/import-production.sh backups/chatwoot-YYYYMMDD-HHMMSS.sql backups/storage_data-YYYYMMDD-HHMMSS.tar.gz
+```
+
+> **No ejecutes** `db:chatwoot_prepare` en producción si importas el dump local: la BD ya viene migrada y con datos.
+
+### 4. Variables que deben coincidir
+
+| Variable | Recomendación |
+| --- | --- |
+| `SECRET_KEY_BASE` | **Mismo valor que en local** (cookies/sesiones) |
+| `FRONTEND_URL` | `https://chat.huerto.bio` (actualizar en Coolify; el dump trae config de localhost) |
+| `POSTGRES_PASSWORD` / `REDIS_PASSWORD` | Las de producción (solo afectan conexión, no el contenido del dump) |
+
+Tras importar, revisa en Chatwoot **Settings → Account → Allowed Domains** y el **Website Token** (será el mismo que tenías en local si migraste la BD completa).
 
 ## Seguridad
 
