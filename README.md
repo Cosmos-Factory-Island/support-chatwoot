@@ -65,7 +65,7 @@ Proyecto Coolify: Huerto.Bio
    ```
 
 8. Crear super-admin → **Settings → Inboxes → Website** → copiar **Website Token**
-9. **Allowed Domains**: `huerto.bio`, `www.huerto.bio`, `staging.huerto.bio`, `localhost`
+9. **Allowed Domains**: `huerto.bio`, `www.huerto.bio`, `beta.huerto.bio`, `staging.huerto.bio`, `localhost`
 10. Configurar en `edge-huertobio`:
     - `PUBLIC_CHATWOOT_BASE_URL=https://chat.huerto.bio`
     - `PUBLIC_CHATWOOT_WEBSITE_TOKEN=<token>`
@@ -121,9 +121,20 @@ Genera en `backups/`:
 - `chatwoot-YYYYMMDD-HHMMSS.sql` — dump PostgreSQL
 - `storage_data-YYYYMMDD-HHMMSS.tar.gz` — avatares/adjuntos (opcional pero recomendado)
 
-### 2. Subir al VPS
+### 2. Subir al VPS (SCP desde PowerShell)
 
-Copia ambos archivos al servidor (SCP, SFTP, etc.).
+Windows incluye **OpenSSH** (`scp`). Sustituye `usuario`, `tu-vps` y la ruta remota:
+
+```powershell
+cd D:\Work\Proyectos\HuertoBio\tools\support-chatwoot\backups
+
+# Copiar dump SQL + storage al VPS
+scp chatwoot-*.sql storage_data-*.tar.gz usuario@tu-vps:/tmp/chatwoot-migrate/
+```
+
+Alternativa con **PuTTY**: `pscp.exe chatwoot-*.sql usuario@tu-vps:/tmp/chatwoot-migrate/`
+
+En el VPS, mueve los archivos al directorio del stack si hace falta (p. ej. `/data/coolify/.../support-chatwoot/backups/`).
 
 ### 3. Importar en Coolify
 
@@ -144,7 +155,11 @@ chmod +x scripts/import-production.sh
 | `FRONTEND_URL` | `https://chat.huerto.bio` (actualizar en Coolify; el dump trae config de localhost) |
 | `POSTGRES_PASSWORD` / `REDIS_PASSWORD` | Las de producción (solo afectan conexión, no el contenido del dump) |
 
-Tras importar, revisa en Chatwoot **Settings → Account → Allowed Domains** y el **Website Token** (será el mismo que tenías en local si migraste la BD completa).
+Tras importar, revisa en Chatwoot **Settings → Account → Allowed Domains**:
+
+`huerto.bio`, `www.huerto.bio`, `beta.huerto.bio`, `staging.huerto.bio`, `localhost`
+
+El **Website Token** será el mismo que tenías en local si migraste la BD completa.
 
 ## Seguridad
 
