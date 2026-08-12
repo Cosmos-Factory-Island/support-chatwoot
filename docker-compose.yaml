@@ -5,7 +5,8 @@
 # Dominio del servicio rails: https://chat.huerto.bio:3000
 
 x-chatwoot-app: &chatwoot-app
-  image: chatwoot/chatwoot:latest
+  # Pin de versión: evita sorpresas con :latest y reduce fallos intermitentes de Docker Hub.
+  image: chatwoot/chatwoot:${CHATWOOT_IMAGE_TAG:-v4.16.2}
   volumes:
     - storage_data:/app/storage
   logging:

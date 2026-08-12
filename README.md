@@ -83,6 +83,9 @@ Configurar en Coolify → **Environment Variables** (no hace falta subir un `.en
 | `POSTGRES_DATABASE` | `chatwoot_production` (opcional, default) |
 | `REDIS_PASSWORD` | contraseña fuerte |
 | `ENABLE_ACCOUNT_SIGNUP` | `false` |
+| `CHATWOOT_IMAGE_TAG` | `v4.16.2` (opcional; default en compose) |
+
+> Si el deploy falla con `502 Bad Gateway` al hacer pull de Docker Hub, **reintenta** o en el VPS: `docker pull chatwoot/chatwoot:v4.16.2` y vuelve a desplegar.
 
 > `POSTGRES_HOST=postgres` y `REDIS_URL` ya van **fijados en `docker-compose.yaml`**. Si Rails muestra `pg_isready -h -p 5432`, era porque faltaban esas variables en el contenedor (Coolify no lee `.env` del repo como archivo montado).
 
