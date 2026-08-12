@@ -59,6 +59,8 @@ Proyecto Coolify: Huerto.Bio
    - Coolify/Traefik termina TLS y solicita el certificado para
      `chat.huerto.bio`; Puma recibe HTTP plano.
    - Deja vacíos los dominios de `sidekiq` y cualquier otro servicio interno.
+   - Mantener `FORCE_SSL=true`: el healthcheck declara
+     `X-Forwarded-Proto: https` para no seguir un redirect TLS contra Puma.
 6. Variables de entorno (desde `.env.example`, valores de producción)
    - `FRONTEND_URL=https://chat.huerto.bio` (sin `:3000`)
 7. Deploy → migración (una vez):

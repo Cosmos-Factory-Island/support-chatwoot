@@ -56,7 +56,17 @@ services:
     entrypoint: docker/entrypoints/rails.sh
     command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:3000/api']
+      # Chatwoot fuerza HTTPS. Sin X-Forwarded-Proto, wget sigue su redirect
+      # a https://127.0.0.1:3000 y envía TLS al puerto HTTP de Puma.
+      test:
+        [
+          'CMD',
+          'wget',
+          '--spider',
+          '-q',
+          '--header=X-Forwarded-Proto: https',
+          'http://127.0.0.1:3000/',
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
