@@ -28,7 +28,7 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres psql -U "$DB_USER" -d postgre
   -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" \
   || true
 
-cat "$SQL_DUMP" | docker compose -f "$COMPOSE_FILE" exec -T postgres psql -U "$DB_USER" -d postgres -v ON_ERROR_STOP=1
+cat "$SQL_DUMP" | docker compose -f "$COMPOSE_FILE" exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1
 
 if [[ -n "$STORAGE_ARCHIVE" && -f "$STORAGE_ARCHIVE" ]]; then
   echo "==> Restaurando storage (adjuntos/avatares)..."
