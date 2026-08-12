@@ -1,5 +1,5 @@
 # Overlay de desarrollo local — NO se usa en Coolify.
-# Arranque: docker compose -f docker-compose.yml -f docker-compose.local.yaml up -d
+# Arranque: docker compose -f docker-compose.yaml -f docker-compose.local.yaml up -d
 
 services:
   rails:

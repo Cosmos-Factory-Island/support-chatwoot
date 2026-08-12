@@ -1,20 +1,20 @@
 # Production stack — desplegar en Coolify con este archivo únicamente.
 # Desarrollo local: usar además docker-compose.local.yaml (ver README).
 
-services:
-  base: &base
-    image: chatwoot/chatwoot:latest
-    env_file: .env
-    volumes:
-      - storage_data:/app/storage
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: '3'
+x-chatwoot-app: &chatwoot-app
+  image: chatwoot/chatwoot:latest
+  env_file: .env
+  volumes:
+    - storage_data:/app/storage
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
 
+services:
   rails:
-    <<: *base
+    <<: *chatwoot-app
     restart: unless-stopped
     depends_on:
       postgres:
@@ -42,7 +42,7 @@ services:
           memory: 1536M
 
   sidekiq:
-    <<: *base
+    <<: *chatwoot-app
     restart: unless-stopped
     depends_on:
       postgres:

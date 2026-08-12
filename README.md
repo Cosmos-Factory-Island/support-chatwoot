@@ -10,12 +10,12 @@ Stack Docker independiente de [Chatwoot](https://www.chatwoot.com/) para soporte
 
 | Archivo | Uso |
 | --- | --- |
-| `docker-compose.yml` | Producción / **Coolify** |
+| `docker-compose.yaml` | Producción / **Coolify** |
 | `docker-compose.local.yaml` | Solo desarrollo local (Caddy + Mailpit) |
 | `Caddyfile` | HTTPS local (`chatwoot.localhost`) |
 | `.env.example` | Plantilla de variables (copiar a `.env`) |
 
-> **Coolify** despliega únicamente `docker-compose.yml`. El overlay local no interfiere porque ya no usamos `docker-compose.override.yaml` (auto-cargado por Compose).
+> **Coolify** despliega únicamente `docker-compose.yaml`. El overlay local no interfiere porque no usamos `docker-compose.override.yaml` (auto-cargado por Compose).
 
 ## Desarrollo local
 
@@ -25,10 +25,10 @@ cd D:\Work\Proyectos\HuertoBio\tools\support-chatwoot
 copy .env.example .env
 # Editar .env: descomentar bloque "Desarrollo local" (FRONTEND_URL, mailpit, etc.)
 
-docker compose -f docker-compose.yml -f docker-compose.local.yaml up -d
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml up -d
 
 # Migración inicial (solo la primera vez)
-docker compose -f docker-compose.yml -f docker-compose.local.yaml run --rm rails bundle exec rails db:chatwoot_prepare
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml run --rm rails bundle exec rails db:chatwoot_prepare
 ```
 
 - Panel: https://chatwoot.localhost
@@ -41,7 +41,7 @@ Dentro del **mismo proyecto Coolify** de Huerto.Bio, añadir un recurso Docker C
 ```
 Proyecto Coolify: Huerto.Bio
 ├── edge-huertobio        → docker-compose.prod.yaml
-└── support-chatwoot      → docker-compose.yml (este repo)
+└── support-chatwoot      → docker-compose.yaml (este repo)
 ```
 
 ### Pasos
@@ -49,9 +49,13 @@ Proyecto Coolify: Huerto.Bio
 1. DNS `A`/`AAAA` → `chat.huerto.bio`
 2. Coolify → proyecto **Huerto.Bio** → **+ New Resource** → **Docker Compose**
 3. Repo: `Cosmos-Factory-Island/support-chatwoot`, rama `main`
-4. Compose file: `docker-compose.yml`
-5. Dominio: `chat.huerto.bio` → servicio **`rails`**, puerto `3000`
+4. Compose file: `/docker-compose.yaml`
+5. **Dominio del servicio `rails`**: `https://chat.huerto.bio:3000`
+   - En Coolify **no hay un campo aparte de puerto**. El `:3000` va en la URL del dominio.
+   - Ese puerto es el **interno del contenedor**; Traefik/Coolify sirve la web en HTTPS (443) hacia fuera.
+   - Deja vacíos los dominios de `sidekiq` y cualquier otro servicio interno.
 6. Variables de entorno (desde `.env.example`, valores de producción)
+   - `FRONTEND_URL=https://chat.huerto.bio` (sin `:3000`)
 7. Deploy → migración (una vez):
 
    ```bash
