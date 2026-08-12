@@ -70,14 +70,27 @@ Proyecto Coolify: Huerto.Bio
 
 ### Variables críticas (producción)
 
+Configurar en Coolify → **Environment Variables** (no hace falta subir un `.env` al servidor):
+
 | Variable | Valor |
 | --- | --- |
 | `FRONTEND_URL` | `https://chat.huerto.bio` |
 | `SECRET_KEY_BASE` | `openssl rand -hex 64` |
 | `POSTGRES_PASSWORD` | contraseña fuerte |
+| `POSTGRES_USERNAME` | `postgres` (opcional, default) |
+| `POSTGRES_DATABASE` | `chatwoot_production` (opcional, default) |
 | `REDIS_PASSWORD` | contraseña fuerte |
-| `REDIS_URL` | `redis://:<password>@redis:6379` |
 | `ENABLE_ACCOUNT_SIGNUP` | `false` |
+
+> `POSTGRES_HOST=postgres` y `REDIS_URL` ya van **fijados en `docker-compose.yaml`**. Si Rails muestra `pg_isready -h -p 5432`, era porque faltaban esas variables en el contenedor (Coolify no lee `.env` del repo como archivo montado).
+
+### Primera migración (obligatoria una vez)
+
+Tras el primer deploy exitoso de postgres/redis, ejecutar en el terminal de Coolify o SSH:
+
+```bash
+docker compose run --rm rails bundle exec rails db:chatwoot_prepare
+```
 
 ### Recursos recomendados
 

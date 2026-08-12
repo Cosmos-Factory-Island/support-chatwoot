@@ -1,9 +1,11 @@
 # Production stack — desplegar en Coolify con este archivo únicamente.
 # Desarrollo local: usar además docker-compose.local.yaml (ver README).
+#
+# Coolify inyecta variables desde la UI; no dependas de un archivo .env en el servidor.
+# Dominio del servicio rails: https://chat.huerto.bio:3000
 
 x-chatwoot-app: &chatwoot-app
   image: chatwoot/chatwoot:latest
-  env_file: .env
   volumes:
     - storage_data:/app/storage
   logging:
@@ -11,6 +13,33 @@ x-chatwoot-app: &chatwoot-app
     options:
       max-size: 10m
       max-file: '3'
+  environment: &chatwoot-env
+    NODE_ENV: production
+    RAILS_ENV: production
+    INSTALLATION_ENV: docker
+    # Conexión interna al servicio postgres del stack (obligatorio — no dejar vacío)
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: '5432'
+    POSTGRES_USERNAME: ${POSTGRES_USERNAME:-postgres}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    POSTGRES_DATABASE: ${POSTGRES_DATABASE:-chatwoot_production}
+    REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
+    SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE is required}
+    FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+    FORCE_SSL: ${FORCE_SSL:-true}
+    ENABLE_ACCOUNT_SIGNUP: ${ENABLE_ACCOUNT_SIGNUP:-false}
+    RAILS_LOG_TO_STDOUT: ${RAILS_LOG_TO_STDOUT:-true}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    DEFAULT_LOCALE: ${DEFAULT_LOCALE:-es}
+    MAILER_SENDER_EMAIL: ${MAILER_SENDER_EMAIL:-Huerto.Bio Soporte <soporte@huerto.bio>}
+    SMTP_DOMAIN: ${SMTP_DOMAIN:-huerto.bio}
+    SMTP_ADDRESS: ${SMTP_ADDRESS:-}
+    SMTP_PORT: ${SMTP_PORT:-587}
+    SMTP_USERNAME: ${SMTP_USERNAME:-}
+    SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    SMTP_AUTHENTICATION: ${SMTP_AUTHENTICATION:-plain}
+    SMTP_ENABLE_STARTTLS_AUTO: ${SMTP_ENABLE_STARTTLS_AUTO:-true}
+    ACTIVE_STORAGE_SERVICE: ${ACTIVE_STORAGE_SERVICE:-local}
 
 services:
   rails:
@@ -23,10 +52,6 @@ services:
         condition: service_healthy
     expose:
       - '3000'
-    environment:
-      NODE_ENV: production
-      RAILS_ENV: production
-      INSTALLATION_ENV: docker
     entrypoint: docker/entrypoints/rails.sh
     command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
     healthcheck:
@@ -34,7 +59,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 90s
+      start_period: 120s
     deploy:
       resources:
         limits:
@@ -49,10 +74,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
-      NODE_ENV: production
-      RAILS_ENV: production
-      INSTALLATION_ENV: docker
     command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
     deploy:
       resources:
@@ -70,11 +91,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'pg_isready -U ${POSTGRES_USERNAME:-postgres} -d ${POSTGRES_DATABASE:-chatwoot_production}',
-        ]
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -87,12 +104,13 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     command: ['sh', '-c', 'redis-server --requirepass "$$REDIS_PASSWORD"']
-    env_file: .env
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
       interval: 10s
       timeout: 5s
       retries: 5
