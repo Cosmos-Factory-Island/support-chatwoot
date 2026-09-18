@@ -14,8 +14,9 @@ Stack Docker independiente de [Chatwoot](https://www.chatwoot.com/) para soporte
 | `docker-compose.local.yaml` | Solo desarrollo local (Caddy + Mailpit) |
 | `Caddyfile` | HTTPS local (`chatwoot.localhost`) |
 | `.env.example` | Plantilla de variables (copiar a `.env`) |
-| `scripts/export-local.ps1` | Exportar BD + storage desde local |
+| `scripts/export-local.ps1` | Exportar BD + storage desde local (manual) |
 | `scripts/import-production.sh` | Restaurar en Coolify/VPS |
+| `postgres-backup` / `storage-backup` | Backup automático diario → Storage Box |
 
 > **Coolify** despliega únicamente `docker-compose.yaml`. El overlay local no interfiere porque no usamos `docker-compose.override.yaml` (auto-cargado por Compose).
 
@@ -110,6 +111,41 @@ docker compose run --rm rails bundle exec rails db:chatwoot_prepare
 | `sidekiq` | 0.5 | 512M |
 | `postgres` | 0.5 | 1G |
 | `redis` | 0.25 | 256M |
+| `postgres-backup` | 0.25 | 256M |
+| `storage-backup` | 0.25 | 256M |
+
+### Backups automáticos (Storage Box)
+
+Dos servicios `offen/docker-volume-backup:v2` suben copias al **Hetzner Storage Box** (mismas credenciales que Huerto.Bio, rutas separadas):
+
+| Servicio | Volumen | Cron (UTC) | Ruta remota | Retención |
+| --- | --- | --- | --- | --- |
+| `postgres-backup` | `postgres_data` | `0 5 * * *` (05:00) | `/backups/chatwoot/postgres` | 20 días |
+| `storage-backup` | `storage_data` (adjuntos/avatares) | `0 6 * * *` (06:00) | `/backups/chatwoot/storage` | 20 días |
+
+Variables en Coolify (ver `.env.example`):
+
+```bash
+STORAGEBOX_HOST=u548960.your-storagebox.de
+STORAGEBOX_PORT=22
+STORAGEBOX_USER=...
+STORAGEBOX_PASSWORD=...
+STORAGEBOX_PATH_POSTGRES=/backups/chatwoot/postgres   # opcional (default)
+STORAGEBOX_PATH_STORAGE=/backups/chatwoot/storage     # opcional (default)
+```
+
+Tras el primer deploy con credenciales, comprobar en el terminal de Coolify:
+
+```bash
+docker exec $(docker ps -qf name=postgres-backup) backup
+docker exec $(docker ps -qf name=storage-backup) backup
+```
+
+Archivos esperados: `chatwoot-db-backup-*.tar.gz` y `chatwoot-storage-backup-*.tar.gz`.
+
+**Restaurar** (desastre): descargar los `.tar.gz`, extraer y sustituir el volumen correspondiente, o usar `scripts/import-production.sh` con un `pg_dump` lógico si prefieres solo la BD. Ver runbook Huerto.Bio: `edge-huertobio/docs/deploy/backup-restore.md`.
+
+> En desarrollo local (`docker-compose.local.yaml`) los servicios de backup están desactivados (`profiles: local-disabled`).
 
 ## Migrar configuración local → producción
 

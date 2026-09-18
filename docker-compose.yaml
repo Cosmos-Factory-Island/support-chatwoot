@@ -122,6 +122,55 @@ services:
           cpus: '0.25'
           memory: 256M
 
+  # Backups automáticos → Hetzner Storage Box (mismas credenciales que Huerto.Bio, rutas separadas).
+  # Manual: docker exec <postgres-backup> backup  |  docker exec <storage-backup> backup
+  postgres-backup:
+    image: offen/docker-volume-backup:v2
+    restart: unless-stopped
+    environment:
+      BACKUP_CRON_EXPRESSION: '0 5 * * *'
+      BACKUP_FILENAME: chatwoot-db-backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      BACKUP_PRUNING_PREFIX: chatwoot-db-backup-
+      BACKUP_RETENTION_DAYS: '20'
+      SSH_HOST_NAME: ${STORAGEBOX_HOST:-u548960.your-storagebox.de}
+      SSH_PORT: ${STORAGEBOX_PORT:-22}
+      SSH_USER: ${STORAGEBOX_USER}
+      SSH_PASSWORD: ${STORAGEBOX_PASSWORD}
+      SSH_REMOTE_PATH: ${STORAGEBOX_PATH_POSTGRES:-/backups/chatwoot/postgres}
+    volumes:
+      - postgres_data:/backup/postgres_data:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  storage-backup:
+    image: offen/docker-volume-backup:v2
+    restart: unless-stopped
+    environment:
+      BACKUP_CRON_EXPRESSION: '0 6 * * *'
+      BACKUP_FILENAME: chatwoot-storage-backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      BACKUP_PRUNING_PREFIX: chatwoot-storage-backup-
+      BACKUP_RETENTION_DAYS: '20'
+      SSH_HOST_NAME: ${STORAGEBOX_HOST:-u548960.your-storagebox.de}
+      SSH_PORT: ${STORAGEBOX_PORT:-22}
+      SSH_USER: ${STORAGEBOX_USER}
+      SSH_PASSWORD: ${STORAGEBOX_PASSWORD}
+      SSH_REMOTE_PATH: ${STORAGEBOX_PATH_STORAGE:-/backups/chatwoot/storage}
+    volumes:
+      - storage_data:/backup/storage_data:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
 volumes:
   storage_data:
   postgres_data:
