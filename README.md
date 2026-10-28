@@ -89,9 +89,9 @@ Configurar en Coolify → **Environment Variables** (no hace falta subir un `.en
 | `POSTGRES_DATABASE` | `chatwoot_production` (opcional, default) |
 | `REDIS_PASSWORD` | contraseña fuerte |
 | `ENABLE_ACCOUNT_SIGNUP` | `false` |
-| `CHATWOOT_IMAGE_TAG` | `v4.16.2` (opcional; default en compose) |
+| `CHATWOOT_IMAGE_TAG` | `v4.17.1` (opcional; default en compose) |
 
-> Si el deploy falla con `502 Bad Gateway` al hacer pull de Docker Hub, **reintenta** o en el VPS: `docker pull chatwoot/chatwoot:v4.16.2` y vuelve a desplegar.
+> Si el deploy falla con `502 Bad Gateway` al hacer pull de Docker Hub, **reintenta** o en el VPS: `docker pull chatwoot/chatwoot:v4.17.1` y vuelve a desplegar.
 
 > `POSTGRES_HOST=postgres` y `REDIS_URL` ya van **fijados en `docker-compose.yaml`**. Si Rails muestra `pg_isready -h -p 5432`, era porque faltaban esas variables en el contenedor (Coolify no lee `.env` del repo como archivo montado).
 
@@ -190,7 +190,7 @@ chmod +x scripts/import-production.sh
 
 ### 4. Migraciones tras importar dump (local ≠ imagen prod)
 
-El dump local puede traer un esquema **anterior** al de la imagen desplegada en Coolify (`CHATWOOT_IMAGE_TAG`, p. ej. `v4.16.2`). Si no migras, Sidekiq fallará con errores como:
+El dump local puede traer un esquema **anterior** al de la imagen desplegada en Coolify (`CHATWOOT_IMAGE_TAG`, p. ej. `v4.17.1`). Si no migras, Sidekiq fallará con errores como:
 
 - `PG::UndefinedColumn: column email_templates.inbox_id does not exist`
 - `StandardError: Channel email domain not present` (inbox Website sin canal email; ver [Emails](#emails-y-notificaciones))

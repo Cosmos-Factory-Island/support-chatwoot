@@ -6,7 +6,7 @@
 
 x-chatwoot-app: &chatwoot-app
   # Pin de versión: evita sorpresas con :latest y reduce fallos intermitentes de Docker Hub.
-  image: chatwoot/chatwoot:${CHATWOOT_IMAGE_TAG:-v4.16.2}
+  image: chatwoot/chatwoot:${CHATWOOT_IMAGE_TAG:-v4.17.1}
   volumes:
     - storage_data:/app/storage
   logging:
